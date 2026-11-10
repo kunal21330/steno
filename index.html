@@ -31,6 +31,18 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1
 <h1>SSC steno practice</h1><div class="mu">Dictation, then timed transcription. Checked with SSC's revised evaluation guidelines.</div>
 
 <section id="setup">
+ <div class="card"><h2>Library</h2>
+  <div class="row"><div><label>Volume</label><select id="lv"></select></div><div><label>Dictation</label><select id="ld"></select></div></div>
+  <p style="margin:12px 0 0;display:flex;gap:8px;flex-wrap:wrap"><button id="lgo">Load and start</button><button class="g" id="lload">Load only</button><button class="g" id="ldel">Remove selected</button></p>
+  <details style="margin-top:12px"><summary class="mu" style="cursor:pointer">Add dictations from your own copy</summary>
+   <div class="row" style="margin-top:10px"><div><label>Import many files at once (.txt, .md, .json)</label><input type="file" id="lfile" accept=".txt,.md,.json" multiple></div><div><label>Or import a whole folder (computer only)</label><input type="file" id="lfolder" webkitdirectory multiple></div></div>
+   <p class="mu" style="font-size:13px;margin:8px 0">Best layout: one folder per volume and one .txt per dictation, like <b>Volume 1/Dictation 4.txt</b>. Pick the folder that holds all the volume folders, or a single volume folder. Loose files named like "Volume 1 Dictation 4.txt" are sorted for you. For other names, type the volume name in the box below first and every selected file goes into that volume. A single file can also use <b>#</b> for volumes and <b>##</b> for dictations, or be JSON.</p>
+   <p style="margin:0 0 12px"><button class="g" id="lexp">Download library backup</button></p>
+   <div class="row" style="margin-top:12px"><div><label>Scan a printed book: pick photos of one dictation, in page order</label><input type="file" id="oimg" accept="image/*" multiple></div><div style="align-self:end"><button class="g" id="ocrgo">Read text from photos</button></div></div>
+   <label style="margin-top:8px"><input type="checkbox" id="rmn" checked style="width:auto"> Remove lines that are only a number (margin word counts)</label>
+   <div class="mu" id="ost" style="font-size:13px;margin:6px 0 12px">The text lands in the passage box further down. Proofread it against the book, then save it here.</div>
+   <div class="row"><div><label>Volume name (for saving a passage or for importing loose files)</label><input id="nv" placeholder="Volume 1"></div><div><label>Dictation</label><input id="nd" placeholder="Dictation 4"></div><div style="align-self:end"><button class="g" id="lsave">Save to library</button></div></div></details>
+  <p class="mu" style="font-size:13px;margin:10px 0 0">The library is stored in this browser only. Nothing is uploaded, so keep the book text out of any public repository.</p></div>
  <div class="card"><h2>Test</h2><div class="row">
   <div><label>Post</label><select id="pre"><option value="D">Stenographer Grade D (80 WPM, English)</option><option value="C">Stenographer Grade C (100 WPM, English)</option><option value="X">Custom</option></select></div>
   <div><label>Category (decides the pass limit)</label><select id="catg"><option value="ur">Unreserved</option><option value="res">Reserved categories</option></select></div></div>
@@ -71,7 +83,7 @@ const $=s=>document.querySelector(s),esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;'
 const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0'),f1=n=>n.toFixed(1);
 const words=s=>s.trim().split(/\s+/).filter(Boolean);
 const kv=(a,b,c='')=>`<div class="kv"><span class="mu">${a}</span><b class="${c}">${b}</b></div>`;
-let cfg,t0,tick,dtick,keys,blocked,R,ref,info,alt,hidden=new Set();
+let curTitle='',lib={},cfg,t0,tick,dtick,keys,blocked,R,ref,info,alt,hidden=new Set();
 const FULL=['omi','sub','add','rep','inc','caps'],HALF=['spl','plu','stop','small','prop'];
 const CAT={omi:['Omission','--omi'],sub:['Substitution','--sub'],add:['Addition','--add'],rep:['Repetition','--add'],inc:['Incomplete word','--spl'],caps:['Typed in all capitals','--cap'],
  spl:['Wrong spelling','--spl'],plu:['Singular / plural','--pun'],stop:['Full stop missing or misplaced','--ok'],small:['Small letter at sentence start','--cap'],prop:['Proper noun not capitalised','--sub']};
@@ -129,7 +141,7 @@ function begin(){
  const text=$('#ref').value;
  if(words(text).length<5)return alert('Paste the dictated passage first.');
  prep(text,$('#alt').value);
- cfg={mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
+ cfg={title:curTitle,mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
  try{localStorage.setItem('steno_ref',text);localStorage.setItem('steno_alt',$('#alt').value)}catch{}
  if($('#skip').value==='1')return startTest();
  show('dict');const au=$('#au');if(au.src)au.play().catch(()=>{});
@@ -172,7 +184,7 @@ function delAttempt(i){if(!confirm('Delete this attempt?'))return;const h=hist()
 /* ---------- results ---------- */
 function render(){
  const r=R,c=r.cnt,ok=r.err<=r.cfg.lim,keysC=Object.keys(CAT);
- $('#rs').textContent=new Date(r.date).toLocaleString()+' · '+r.cfg.pre;
+ $('#rs').textContent=(r.cfg.title?r.cfg.title+' · ':'')+new Date(r.date).toLocaleString()+' · '+r.cfg.pre;
  $('#p1').innerHTML=`<div class="card big" style="border-color:${ok?'var(--omi)':'var(--bad)'}"><b class="${ok?'good':'bad'}">${r.err.toFixed(2)}%</b><span class="mu">Percentage of errors</span><br>
   <span class="pill" style="margin-top:10px;background:${ok?'#4ade8026':'#f43f5e26'}">${ok?'Qualifies':'Does not qualify'} at up to ${r.cfg.lim}% (${r.cfg.cat.toLowerCase()})</span>
   <div class="mu" style="margin-top:12px;font-size:13px">(${r.full} full + ${r.half} half ÷ 2) × 100 ÷ ${r.cfg.den} words, rounded to two decimals</div></div>
@@ -205,7 +217,73 @@ function setCats(){$('#dyn').textContent=[...hidden].map(k=>k==='omi'?`.t[data-k
  document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('off',hidden.has(x.dataset.k)))}
 function showHist(){const h=hist();$('#hist').innerHTML=h.length?`<table><tr><th>Date</th><th>Full</th><th>Half</th><th>Errors</th><th>Gross WPM</th><th></th></tr>${h.slice(0,15).map((x,i)=>`<tr><td>${new Date(x.d).toLocaleString()}</td><td>${x.f??''}</td><td>${x.h??''}</td><td>${x.e.toFixed(2)}%</td><td>${Math.round(x.g||0)}</td><td style="white-space:nowrap">${x.typed!==undefined?`<button class="g" data-v="${i}" style="padding:4px 12px">View report</button> `:''}<button class="g" data-x="${i}" style="padding:4px 10px" aria-label="Delete attempt">✕</button></td></tr>`).join('')}</table>`:'<span class="mu">Finished tests are saved here, in this browser only, with their full reports.</span>'}
 
+/* ---------- library (IndexedDB) ---------- */
+const idb=()=>new Promise((ok,no)=>{const q=indexedDB.open('steno',1);q.onupgradeneeded=()=>q.result.createObjectStore('k');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)});
+const dbGet=async k=>{try{const d=await idb();return await new Promise(ok=>{const r=d.transaction('k').objectStore('k').get(k);r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(undefined)})}catch{return undefined}};
+const dbSet=async(k,v)=>{try{const d=await idb();return await new Promise(ok=>{const t=d.transaction('k','readwrite');t.objectStore('k').put(v,k);t.oncomplete=()=>ok(true);t.onerror=()=>ok(false)})}catch{return false}};
+const nat=(a,b)=>a.localeCompare(b,undefined,{numeric:true});
+function parseLib(t){
+ t=t.trim();if(t[0]==='{'){try{return JSON.parse(t)}catch{}}
+ const o={};let v='',d='',buf=[];
+ const flush=()=>{const x=buf.join('\n').trim();if(v&&d&&x)(o[v]=o[v]||{})[d]=x;buf=[]};
+ t.split(/\r?\n/).forEach(l=>{let m;if(m=l.match(/^##\s+(.+)/)){flush();d=m[1].trim()}else if(m=l.match(/^#\s+(.+)/)){flush();v=m[1].trim();d=''}else buf.push(l)});
+ flush();return o;
+}
+const opts=a=>a.map(x=>`<option>${esc(x)}</option>`).join('');
+function fillD(){const v=$('#lv').value;$('#ld').innerHTML=opts(Object.keys(lib[v]||{}).sort(nat))}
+function refreshLib(keepV){
+ const vs=Object.keys(lib).sort(nat);$('#lv').innerHTML=vs.length?opts(vs):'<option value="">Library is empty</option>';
+ if(keepV&&lib[keepV])$('#lv').value=keepV;fillD();
+}
+function loadSel(){
+ const v=$('#lv').value,d=$('#ld').value,t=(lib[v]||{})[d];
+ if(!t){alert('Add dictations to the library first.');return false}
+ $('#ref').value=t;curTitle=v+', '+d;return true;
+}
+async function importFiles(fl){
+ const o={},ov=$('#nv').value.trim();let skip=0;
+ for(const f of fl){
+  if(!/\.(txt|md|json)$/i.test(f.name)){skip++;continue}
+  const t=await f.text(),base=f.name.replace(/\.[^.]+$/,'');
+  if(/\.json$/i.test(f.name)||/^\s*#/.test(t)){const p=parseLib(t);for(const v in p)o[v]=Object.assign(o[v]||{},p[v]);continue}
+  const parts=(f.webkitRelativePath||'').split('/').filter(Boolean);let v,d=base,m;
+  if(ov)v=ov;
+  else if(parts.length>=3)v=parts[parts.length-2];
+  else if(parts.length===2)v=parts[0];
+  else if(m=base.match(/vol\w*\D*(\d+)\D+(?:dict\w*|chap\w*|ch|d)?\D*(\d+)/i)){v='Volume '+m[1];d='Dictation '+m[2]}
+  else v='Imported';
+  if(/^\d+$/.test(d))d='Dictation '+d;
+  (o[v]=o[v]||{})[d]=t.trim();
+ }
+ const n=await addLib(o);return{n,v:Object.keys(o).length,skip};
+}
+async function saveLib(){await dbSet('lib',lib)}
+async function addLib(o){let n=0;for(const v in o)for(const d in o[v]){if(typeof o[v][d]==='string'&&o[v][d].trim()){(lib[v]=lib[v]||{})[d]=o[v][d].trim();n++}}await saveLib();refreshLib();return n}
+
+/* ---------- scan printed pages (OCR in the browser) ---------- */
+const clean=(t,rm)=>t.replace(/-\r?\n(?=\p{Ll})/gu,'').split(/\r?\n/).filter(l=>!(rm&&/^\s*\d{1,4}\s*$/.test(l))).join(' ').replace(/\s{2,}/g,' ').trim();
+const loadTess=()=>window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const x=document.createElement('script');x.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';x.onload=ok;x.onerror=()=>no(new Error('could not load the reader, check your internet connection'));document.head.appendChild(x)});
+async function ocr(){
+ const fs=[...$('#oimg').files],st=$('#ost');if(!fs.length)return alert('Choose one or more photos first.');
+ let i=0,w;st.textContent='Loading the reader (needs internet the first time)…';
+ try{
+  await loadTess();
+  w=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')st.textContent='Reading page '+(i+1)+' of '+fs.length+': '+Math.round(m.progress*100)+'%'}});
+  const out=[];for(i=0;i<fs.length;i++){const r=await w.recognize(fs[i]);out.push(r.data.text)}
+  await w.terminate();
+  $('#ref').value=clean(out.join('\n'),$('#rmn').checked);curTitle='';
+  st.textContent='Done. Proofread the passage box below against the book, then enter the volume and dictation names and save.';
+ }catch(e){st.textContent='Could not read the photos: '+e.message;try{w&&await w.terminate()}catch{}}
+}
+
 /* ---------- wiring ---------- */
+$('#ocrgo').onclick=ocr;
+$('#lv').onchange=fillD;$('#lload').onclick=loadSel;$('#lgo').onclick=()=>{if(loadSel())begin()};
+$('#ref').oninput=()=>{curTitle=''};
+$('#ldel').onclick=async()=>{const v=$('#lv').value,d=$('#ld').value;if(!lib[v]||!confirm('Remove '+v+', '+d+' from the library?'))return;delete lib[v][d];if(!Object.keys(lib[v]).length)delete lib[v];await saveLib();refreshLib(v)};
+['#lfile','#lfolder'].forEach(id=>$(id).onchange=async e=>{const fl=[...e.target.files];e.target.value='';if(!fl.length)return;const r=await importFiles(fl);alert(r.n?r.n+' dictations added across '+r.v+' volume(s).'+(r.skip?' Skipped '+r.skip+' files that were not .txt, .md or .json.':''):'Nothing was added. Check the file types and names.')});
+$('#lexp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(lib)],{type:'application/json'}));a.download='steno-library.json';a.click()};
+$('#lsave').onclick=async()=>{const v=$('#nv').value.trim(),d=$('#nd').value.trim(),t=$('#ref').value.trim();if(!v||!d||!t)return alert('Enter a volume name, a dictation name, and a passage.');await addLib({[v]:{[d]:t}});refreshLib(v);$('#ld').value=d;$('#ref').value='';curTitle='';$('#nd').value=d.replace(/(\d+)\s*$/,m=>+m+1);alert('Saved '+v+', '+d+'.')};
 $('#hist').onclick=e=>{const v=e.target.dataset.v,x=e.target.dataset.x;if(v!==undefined)openAttempt(+v);else if(x!==undefined)delAttempt(+x)};
 $('#go').onclick=begin;$('#tgo').onclick=startTest;$('#fin').onclick=()=>{if(confirm('Submit your transcription now?'))finish()};
 $('#again').onclick=()=>{show('setup');showHist()};$('#retry').onclick=begin;
@@ -214,5 +292,5 @@ $('#aud').onchange=e=>{const f=e.target.files[0];if(f){$('#au').src=URL.createOb
 document.querySelector('.tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b===e.target));['p1','p2','p3'].forEach(i=>$('#'+i).classList.toggle('hide',i!==p))};
 $('#p2').onclick=e=>{if(e.target.classList.contains('chip')){const k=e.target.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);setCats()}};
 try{$('#ref').value=localStorage.getItem('steno_ref')||'';$('#alt').value=localStorage.getItem('steno_alt')||''}catch{}
-setPre();showHist();
+setPre();showHist();dbGet('lib').then(l=>{lib=l||{};refreshLib()});try{navigator.storage.persist()}catch{}
 </script></body></html>
