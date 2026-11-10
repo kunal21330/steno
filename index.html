@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSC Steno Practice</title>
+<style>
+:root{--bg:#0a0e16;--card:#111726;--card2:#171e30;--line:#242d44;--tx:#e8ebf4;--mu:#8a94ab;--ac:#38bdf8;--sub:#c084fc;--add:#f87171;--omi:#4ade80;--spl:#fb923c;--cap:#60a5fa;--pun:#a78bfa;--ok:#22d3ee;--bad:#f43f5e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 "Segoe UI",system-ui,sans-serif}
+main{max-width:960px;margin:0 auto;padding:20px 14px 60px}h1{font-size:22px;margin:6px 0 2px}h2{font-size:16px;margin:0 0 12px}
+.mu{color:var(--mu)}.hide{display:none!important}.good{color:var(--omi)}.bad{color:var(--bad)}.warn{color:var(--spl)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1 1 150px}
+label{display:block;font-size:13px;color:var(--mu);margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--card2);color:var(--tx);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit}
+button{background:var(--ac);color:#04121c;border:0;border-radius:9px;padding:10px 18px;font:600 15px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+button.g{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+#bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2}
+.clock{font:700 34px ui-monospace,Consolas,monospace;color:var(--ac)}.clock.warn{color:var(--bad)}
+#ta{height:55vh;font:18px/1.7 "Times New Roman",Times,serif;caret-color:var(--ac)}
+.tabs{display:flex;gap:8px;margin:16px 0}.tabs button{background:var(--card);color:var(--mu);border:1px solid var(--line)}.tabs button.on{background:var(--ac);color:#04121c}
+.big{text-align:center;padding:26px}.big b{font-size:52px;display:block;line-height:1.1}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.g1{grid-template-columns:1fr}
+.kv{display:flex;justify-content:space-between;gap:10px;background:var(--card2);border-radius:10px;padding:10px 13px}
+table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-weight:400}th{color:var(--mu)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.chip{border:1px solid;border-radius:99px;padding:3px 12px;font-size:13px;cursor:pointer;background:none;font-weight:500}.chip.off{opacity:.35}
+.donut{width:170px;height:170px;border-radius:50%;margin:auto;display:grid;place-items:center}.donut i{width:98px;height:98px;border-radius:50%;background:var(--card);display:grid;place-items:center;font:normal 700 20px system-ui}
+#tx{font:17px/2.35 "Times New Roman",Times,serif;word-spacing:3px}
+.t{border:1.5px solid;border-radius:7px;padding:1px 6px;margin:0 1px;font-size:15px;white-space:nowrap}.t b{font-weight:600}
+.pill{display:inline-block;padding:3px 12px;border-radius:99px;font-weight:600;font-size:13px}
+</style><style id="dyn"></style></head>
+<body><main>
+<h1>SSC steno practice</h1><div class="mu">Dictation, then timed transcription. Checked with SSC's revised evaluation guidelines.</div>
+
+<section id="setup">
+ <div class="card"><h2>Test</h2><div class="row">
+  <div><label>Post</label><select id="pre"><option value="D">Stenographer Grade D (80 WPM, English)</option><option value="C">Stenographer Grade C (100 WPM, English)</option><option value="X">Custom</option></select></div>
+  <div><label>Category (decides the pass limit)</label><select id="catg"><option value="ur">Unreserved</option><option value="res">Reserved categories</option></select></div></div>
+  <div class="row" style="margin-top:12px">
+   <div><label>Transcription time (min)</label><input id="mins" type="number" min="1"></div>
+   <div><label>Words in master passage</label><input id="den" type="number" min="1"></div>
+   <div><label>Pass if mistakes are up to (%)</label><input id="lim" type="number" step="0.01"></div>
+   <div><label>Dictation speed (WPM)</label><input id="wpm" type="number"></div></div>
+  <p class="mu" style="margin:10px 0 0">Error % uses the fixed master-passage count: 800 words for 80 WPM and 1000 words for 100 WPM, as in the guidelines. Pass limits are the cut-offs SSC has used in recent results; check your notice.</p></div>
+ <div class="card"><h2>Dictated passage</h2>
+  <textarea id="ref" rows="8" placeholder="Paste the passage exactly as dictated"></textarea>
+  <div class="row" style="margin-top:12px"><div><label>Dictation audio (optional)</label><input type="file" id="aud" accept="audio/*"></div>
+  <div><label>Skip the dictation phase?</label><select id="skip"><option value="0">No, run a 10-minute dictation first</option><option value="1">Yes, go straight to transcription</option></select></div></div>
+  <label style="margin-top:12px">Accepted alternate forms, one group per line (the guidelines accept every form of such words)</label>
+  <textarea id="alt" rows="2" placeholder="Honourable=Hon'ble=Hon.=honourable"></textarea>
+  <p style="margin:14px 0 0"><button id="go">Start</button></p></div>
+ <div class="card"><h2>Recent attempts</h2><div id="hist"></div></div>
+</section>
+
+<section id="dict" class="hide"><div class="card" style="text-align:center"><h2>Dictation</h2><div class="clock" id="dclock">10:00</div>
+ <p class="mu">Write in shorthand on paper. Transcription starts when you press the button, or when the 10 minutes end.</p>
+ <audio id="au" controls class="hide"></audio><p><button id="tgo">Start transcription</button></p></div></section>
+
+<section id="test" class="hide">
+ <div id="bar"><div class="clock" id="clock">50:00</div><div class="mu">Words typed <b id="wc" style="color:var(--tx)">0</b></div><button id="fin" style="margin-left:auto">Submit</button></div>
+ <textarea id="ta" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Transcription"></textarea>
+</section>
+
+<section id="result" class="hide">
+ <div class="row" style="align-items:center"><div><h2 id="rt" style="margin:0">Result</h2><div class="mu" id="rs"></div></div>
+ <div style="flex:0 0 auto;display:flex;gap:8px"><button class="g" id="retry">Retry same text</button><button id="again">New passage</button></div></div>
+ <div class="tabs"><button data-p="p1" class="on">Score</button><button data-p="p2">Mistakes</button><button data-p="p3">Full report</button></div>
+ <div id="p1"></div><div id="p2" class="hide"></div><div id="p3" class="hide"></div>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0'),f1=n=>n.toFixed(1);
+const words=s=>s.trim().split(/\s+/).filter(Boolean);
+const kv=(a,b,c='')=>`<div class="kv"><span class="mu">${a}</span><b class="${c}">${b}</b></div>`;
+let cfg,t0,tick,dtick,keys,blocked,R,ref,info,alt,hidden=new Set();
+const FULL=['omi','sub','add','rep','inc','caps'],HALF=['spl','plu','stop','small','prop'];
+const CAT={omi:['Omission','--omi'],sub:['Substitution','--sub'],add:['Addition','--add'],rep:['Repetition','--add'],inc:['Incomplete word','--spl'],caps:['Typed in all capitals','--cap'],
+ spl:['Wrong spelling','--spl'],plu:['Singular / plural','--pun'],stop:['Full stop missing or misplaced','--ok'],small:['Small letter at sentence start','--cap'],prop:['Proper noun not capitalised','--sub']};
+const PRE={D:{mins:50,den:800,ur:7,res:10,wpm:80},C:{mins:40,den:1000,ur:5,res:7,wpm:100}};
+const LS='steno_hist',hist=()=>{try{return JSON.parse(localStorage.getItem(LS))||[]}catch{return[]}};
+const show=id=>['setup','dict','test','result'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));
+
+/* ---------- SSC evaluation ---------- */
+const norm=w=>w.replace(/[^\p{L}\p{N}]/gu,'');
+const NW={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,hundred:100};
+const num=a=>/^\d+$/.test(a)?+a:(a in NW?NW[a]:null);
+const eq=(a,b)=>a===b||(alt[a]!==undefined&&alt[a]===alt[b])||(num(a)!==null&&num(a)===num(b));
+function lev(a,b){let p=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let c=[i];for(let j=1;j<=b.length;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[b.length]}
+const plural=(a,b)=>a===b+'s'||b===a+'s'||a===b+'es'||b===a+'es'||(a.endsWith('ies')&&a.slice(0,-3)+'y'===b)||(b.endsWith('ies')&&b.slice(0,-3)+'y'===a);
+const COST={inc:.8,caps:.8,spl:.5,plu:.4,small:.3,prop:.3,stop:.2};
+function cmp(i,t){
+ const r=ref[i],a=norm(r),b=norm(t),al=a.toLowerCase(),bl=b.toLowerCase(),k=[];
+ if(!b)return{c:1,k:['sub']};
+ if(eq(al,bl)){
+  if(al===bl&&a!==b){
+   const up=/^\p{Lu}/u,lo=/^\p{Ll}/u;
+   if(bl.length>1&&b===b.toUpperCase()&&a!==a.toUpperCase())k.push('caps');
+   else if(up.test(a)&&lo.test(b)){if(info[i].start)k.push('small');else if(info[i].proper)k.push('prop')}
+  }
+ }else if(plural(al,bl))k.push('plu');
+ else if(bl.length<al.length&&al.startsWith(bl))k.push('inc');
+ else if(al.length>2&&bl.length>2&&Math.abs(al.length-bl.length)<=2&&lev(al,bl)<=Math.max(1,Math.floor(al.length/3)))k.push('spl');
+ else return{c:1,k:['sub']};
+ if(/\.$/.test(r)!==/\.$/.test(t))k.push('stop');
+ return{c:Math.min(.95,k.reduce((s,x)=>s+COST[x],0)),k};
+}
+function evaluate(typ){
+ const n=ref.length,m=typ.length,W=m+1,D=new Float32Array((n+1)*W);
+ for(let i=1;i<=n;i++)D[i*W]=i;for(let j=1;j<=m;j++)D[j]=j;
+ for(let i=1;i<=n;i++)for(let j=1;j<=m;j++)D[i*W+j]=Math.min(D[(i-1)*W+j-1]+cmp(i-1,typ[j-1]).c,D[(i-1)*W+j]+1,D[i*W+j-1]+1);
+ const ops=[];let i=n,j=m;
+ while(i>0||j>0){
+  if(i&&j){const x=cmp(i-1,typ[j-1]);if(Math.abs(D[i*W+j]-(D[(i-1)*W+j-1]+x.c))<1e-4){ops.push({r:ref[i-1],w:typ[j-1],k:x.k});i--;j--;continue}}
+  if(i&&Math.abs(D[i*W+j]-(D[(i-1)*W+j]+1))<1e-4){ops.push({r:ref[i-1],k:['omi']});i--}else{ops.push({w:typ[j-1],k:['add']});j--}
+ }
+ ops.reverse();let ti=0;const nt=x=>x===undefined?'':norm(x).toLowerCase();
+ ops.forEach(p=>{if(p.w!==undefined){if(p.k[0]==='add'&&nt(p.w)&&(nt(p.w)===nt(typ[ti-1])||nt(p.w)===nt(typ[ti+1])))p.k=['rep'];ti++}});
+ const cnt={};Object.keys(CAT).forEach(k=>cnt[k]=0);ops.forEach(p=>p.k.forEach(k=>cnt[k]++));
+ let left=0;for(let x=ops.length-1;x>=0&&ops[x].k[0]==='omi';x--)left++;
+ return{ops,cnt,full:FULL.reduce((s,k)=>s+cnt[k],0),half:HALF.reduce((s,k)=>s+cnt[k],0),left};
+}
+
+/* ---------- flow ---------- */
+function setPre(){const p=PRE[$('#pre').value];if(!p)return;$('#mins').value=p.mins;$('#den').value=p.den;$('#wpm').value=p.wpm;$('#lim').value=p[$('#catg').value]}
+function prep(text,altText){
+ ref=words(text);alt={};altText.split('\n').forEach((l,g)=>l.split('=').forEach(v=>{const x=norm(v).toLowerCase();if(x)alt[x]=g}));
+ info=ref.map((w,i)=>{const st=i===0||/[.?!]["')\]]*$/.test(ref[i-1]);return{start:st,proper:!st&&norm(w).length>1&&/^\p{Lu}/u.test(w)}});
+}
+function begin(){
+ const text=$('#ref').value;
+ if(words(text).length<5)return alert('Paste the dictated passage first.');
+ prep(text,$('#alt').value);
+ cfg={mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
+ try{localStorage.setItem('steno_ref',text);localStorage.setItem('steno_alt',$('#alt').value)}catch{}
+ if($('#skip').value==='1')return startTest();
+ show('dict');const au=$('#au');if(au.src)au.play().catch(()=>{});
+ let d0=performance.now();clearInterval(dtick);
+ dtick=setInterval(()=>{const l=600-(performance.now()-d0)/1000;$('#dclock').textContent=fmt(Math.max(0,l));if(l<=0)startTest()},250);
+}
+function startTest(){
+ clearInterval(dtick);$('#au').pause();keys=0;blocked=0;show('test');ta.value='';ta.focus();
+ t0=performance.now();clearInterval(tick);tick=setInterval(upd,250);upd();
+}
+function upd(){const left=cfg.mins*60-(performance.now()-t0)/1000;$('#clock').textContent=fmt(Math.max(0,left));$('#clock').classList.toggle('warn',left<60);$('#wc').textContent=words(ta.value).length;if(left<=0)finish()}
+const ta=$('#ta'),end=()=>ta.setSelectionRange(ta.value.length,ta.value.length);
+ta.addEventListener('keydown',e=>{const k=e.key;if(['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(k)||((e.ctrlKey||e.metaKey)&&'azxycv'.includes(k.toLowerCase()))){e.preventDefault();blocked++}});
+['paste','cut','copy','drop','contextmenu'].forEach(v=>ta.addEventListener(v,e=>{e.preventDefault();blocked++}));
+ta.addEventListener('beforeinput',e=>{const t=e.inputType;if(t.startsWith('delete')||t.startsWith('history')||t==='insertFromPaste'||t==='insertFromDrop'){e.preventDefault();blocked++}});
+ta.addEventListener('input',e=>{keys+=e.data?e.data.length:1});
+ta.addEventListener('mousedown',e=>{e.preventDefault();ta.focus();end()});
+['select','click','focus','keyup'].forEach(v=>ta.addEventListener(v,end));
+
+function score(typed,el,keys,blocked,date){
+ const typ=words(typed),ev=evaluate(typ),w=ev.full+ev.half/2,err=Math.round(w*100/cfg.den*100)/100,min=el/60;
+ R={...ev,typed:typ.length,keys,el,err,w,gross:keys/5/min,net:Math.max(0,(keys/5-w)/min),blocked,date,cfg};
+}
+function finish(){
+ clearInterval(tick);
+ const el=Math.max(1,Math.min((performance.now()-t0)/1000,cfg.mins*60)),date=Date.now();
+ score(ta.value,el,keys,blocked,date);
+ try{const h=hist();h.unshift({d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
+ render();show('result');window.scrollTo(0,0);
+}
+function openAttempt(i){
+ const h=hist()[i];if(!h)return;
+ if(h.typed===undefined)return alert('This attempt was saved before full reports were stored, so only its summary is available.');
+ cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);
+ $('#ref').value=h.text;$('#alt').value=h.alt||'';$('#mins').value=cfg.mins;$('#den').value=cfg.den;$('#lim').value=cfg.lim;$('#wpm').value=cfg.wpm;
+ hidden.clear();render();show('result');window.scrollTo(0,0);
+}
+function delAttempt(i){if(!confirm('Delete this attempt?'))return;const h=hist();h.splice(i,1);try{localStorage.setItem(LS,JSON.stringify(h))}catch{}showHist()}
+
+/* ---------- results ---------- */
+function render(){
+ const r=R,c=r.cnt,ok=r.err<=r.cfg.lim,keysC=Object.keys(CAT);
+ $('#rs').textContent=new Date(r.date).toLocaleString()+' · '+r.cfg.pre;
+ $('#p1').innerHTML=`<div class="card big" style="border-color:${ok?'var(--omi)':'var(--bad)'}"><b class="${ok?'good':'bad'}">${r.err.toFixed(2)}%</b><span class="mu">Percentage of errors</span><br>
+  <span class="pill" style="margin-top:10px;background:${ok?'#4ade8026':'#f43f5e26'}">${ok?'Qualifies':'Does not qualify'} at up to ${r.cfg.lim}% (${r.cfg.cat.toLowerCase()})</span>
+  <div class="mu" style="margin-top:12px;font-size:13px">(${r.full} full + ${r.half} half ÷ 2) × 100 ÷ ${r.cfg.den} words, rounded to two decimals</div></div>
+ <div class="grid"><div class="card"><h2>Mistakes</h2><div class="grid g1">${kv('Full mistakes',r.full,'bad')}${kv('Half mistakes',r.half,'warn')}${kv('Weighted total',f1(r.w))}${kv('Left-over words',r.left)}</div></div>
+ <div class="card"><h2>Words</h2><div class="grid g1">${kv('Master passage',r.cfg.den)}${kv('Dictated words in your passage',ref.length)}${kv('Words typed',r.typed)}${kv('Time used',fmt(r.el))}</div></div>
+ <div class="card"><h2>Practice metrics</h2><div class="grid g1">${kv('Gross WPM',Math.round(r.gross))}${kv('Net WPM',Math.round(r.net))}${kv('Keystrokes',r.keys)}${kv('Accuracy',f1(100-r.w*100/r.cfg.den)+'%')}</div><div class="mu" style="font-size:12px;margin-top:8px">SSC judges only the error percentage. WPM uses 5 keystrokes per word.</div></div></div>`;
+ const tot=keysC.reduce((s,k)=>s+c[k],0)||1;let a=0;
+ const grad=keysC.map(k=>{const s=a;a+=c[k]/tot*100;return `var(${CAT[k][1]}) ${s}% ${a}%`}).join(',');
+ const row=k=>`<div class="kv"><span style="color:var(${CAT[k][1]})">${CAT[k][0]}</span><b>${c[k]}</b></div>`;
+ $('#p2').innerHTML=`<div class="card"><div class="row" style="align-items:center"><div><div class="donut" style="background:conic-gradient(${grad})"><i>${tot===1&&!keysC.some(k=>c[k])?0:tot}</i></div></div>
+  <div><h2>Full mistakes</h2><div class="grid g1">${FULL.map(row).join('')}</div><h2 style="margin-top:14px">Half mistakes</h2><div class="grid g1">${HALF.map(row).join('')}</div></div></div></div>
+ <div class="card"><h2>Your transcript against the dictated passage</h2><div class="mu" style="font-size:13px">Typed word first, dictated word in brackets. Tap a category to hide it.</div>
+ <div class="chips">${keysC.filter(k=>c[k]).map(k=>`<button class="chip" data-k="${k}" style="color:var(${CAT[k][1]})">${CAT[k][0]} ${c[k]}</button>`).join('')}</div><div id="tx">${r.ops.map(opHtml).join(' ')}</div></div>`;
+ $('#p3').innerHTML=`<div class="card"><h2>How this was marked</h2><table>
+  <tr><th>Full mistake</th><td>Omission, wrong word, extra word or symbol, repeated word, incomplete word, left-over words, abbreviation for an expanded word (or the reverse), words typed in all capitals</td></tr>
+  <tr><th>Half mistake</th><td>Wrong spelling, singular for plural (or the reverse), missing or misplaced full stop, small letter at a sentence start, proper noun without a capital</td></tr>
+  <tr><th>Accepted as correct</th><td>Figures as numerals or words, alternate forms you listed, every other punctuation mark, capitals in the middle of a sentence</td></tr>
+  <tr><th>Percentage of errors</th><td>(${r.full} + ${r.half}/2) × 100 ÷ ${r.cfg.den} = ${r.err.toFixed(2)}%</td></tr></table></div>
+ <div class="card"><h2>Test settings and integrity</h2><table>
+  <tr><th>Post and category</th><td>${esc(r.cfg.pre)}, ${esc(r.cfg.cat)}</td></tr><tr><th>Transcription time</th><td>${r.cfg.mins} min</td></tr><tr><th>Backspace</th><td>Disabled</td></tr>
+  <tr><th>Blocked attempts (backspace, paste, arrows)</th><td class="${r.blocked?'warn':'good'}">${r.blocked}</td></tr></table></div>`;
+ setCats();
+}
+function opHtml(p){
+ const k=p.k[0];if(!k)return esc(p.r||p.w);const col=`var(${CAT[k][1]})`;
+ const body=(k==='add'||k==='rep')?`${esc(p.w)} <b>(remove)</b>`:k==='omi'?`— <b>(${esc(p.r)})</b>`:`${esc(p.w)} <b>(${esc(p.r)})</b>`;
+ return `<span class="t" style="border-color:${col};color:${col};background:color-mix(in srgb,${col} 14%,transparent)" data-k="${k}">${body}</span>`;
+}
+function setCats(){$('#dyn').textContent=[...hidden].map(k=>k==='omi'?`.t[data-k=omi]{display:none}`:`.t[data-k=${k}]{background:none!important;border-color:transparent!important;color:inherit!important}`).join('');
+ document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('off',hidden.has(x.dataset.k)))}
+function showHist(){const h=hist();$('#hist').innerHTML=h.length?`<table><tr><th>Date</th><th>Full</th><th>Half</th><th>Errors</th><th>Gross WPM</th><th></th></tr>${h.slice(0,15).map((x,i)=>`<tr><td>${new Date(x.d).toLocaleString()}</td><td>${x.f??''}</td><td>${x.h??''}</td><td>${x.e.toFixed(2)}%</td><td>${Math.round(x.g||0)}</td><td style="white-space:nowrap">${x.typed!==undefined?`<button class="g" data-v="${i}" style="padding:4px 12px">View report</button> `:''}<button class="g" data-x="${i}" style="padding:4px 10px" aria-label="Delete attempt">✕</button></td></tr>`).join('')}</table>`:'<span class="mu">Finished tests are saved here, in this browser only, with their full reports.</span>'}
+
+/* ---------- wiring ---------- */
+$('#hist').onclick=e=>{const v=e.target.dataset.v,x=e.target.dataset.x;if(v!==undefined)openAttempt(+v);else if(x!==undefined)delAttempt(+x)};
+$('#go').onclick=begin;$('#tgo').onclick=startTest;$('#fin').onclick=()=>{if(confirm('Submit your transcription now?'))finish()};
+$('#again').onclick=()=>{show('setup');showHist()};$('#retry').onclick=begin;
+$('#pre').onchange=$('#catg').onchange=setPre;
+$('#aud').onchange=e=>{const f=e.target.files[0];if(f){$('#au').src=URL.createObjectURL(f);$('#au').classList.remove('hide')}};
+document.querySelector('.tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b===e.target));['p1','p2','p3'].forEach(i=>$('#'+i).classList.toggle('hide',i!==p))};
+$('#p2').onclick=e=>{if(e.target.classList.contains('chip')){const k=e.target.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);setCats()}};
+try{$('#ref').value=localStorage.getItem('steno_ref')||'';$('#alt').value=localStorage.getItem('steno_alt')||''}catch{}
+setPre();showHist();
+</script></body></html>
