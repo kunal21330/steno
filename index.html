@@ -15,7 +15,7 @@ button.g{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 #bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2}
 .clock{font:700 34px ui-monospace,Consolas,monospace;color:var(--ac)}.clock.warn{color:var(--bad)}
-#ta{height:55vh;font:18px/1.7 "Times New Roman",Times,serif;caret-color:var(--ac)}
+#ta{height:55vh;font-family:"Times New Roman",Times,serif;font-size:var(--fs,18px);line-height:1.7;tab-size:5;caret-color:var(--ac)}
 .tabs{display:flex;gap:8px;margin:16px 0}.tabs button{background:var(--card);color:var(--mu);border:1px solid var(--line)}.tabs button.on{background:var(--ac);color:#04121c}
 .big{text-align:center;padding:26px}.big b{font-size:52px;display:block;line-height:1.1}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.g1{grid-template-columns:1fr}
@@ -23,8 +23,8 @@ button.g{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
 table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-weight:400}th{color:var(--mu)}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.chip{border:1px solid;border-radius:99px;padding:3px 12px;font-size:13px;cursor:pointer;background:none;font-weight:500}.chip.off{opacity:.35}
 .donut{width:170px;height:170px;border-radius:50%;margin:auto;display:grid;place-items:center}.donut i{width:98px;height:98px;border-radius:50%;background:var(--card);display:grid;place-items:center;font:normal 700 20px system-ui}
-#tx{font:17px/2.35 "Times New Roman",Times,serif;word-spacing:3px}
-.t{border:1.5px solid;border-radius:7px;padding:1px 6px;margin:0 1px;font-size:15px;white-space:nowrap}.t b{font-weight:600}
+#tx{font-family:"Times New Roman",Times,serif;font-size:calc(var(--fs,18px) - 1px);line-height:2.35;word-spacing:3px}
+.t{border:1.5px solid;border-radius:7px;padding:1px 6px;margin:0 1px;font-size:.9em;white-space:nowrap}.t b{font-weight:600}
 .pill{display:inline-block;padding:3px 12px;border-radius:99px;font-weight:600;font-size:13px}
 </style><style id="dyn"></style></head>
 <body><main>
@@ -45,7 +45,8 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1
   <p class="mu" style="font-size:13px;margin:10px 0 0">The library is stored in this browser only. Nothing is uploaded, so keep the book text out of any public repository.</p></div>
  <div class="card"><h2>Test</h2><div class="row">
   <div><label>Post</label><select id="pre"><option value="D">Stenographer Grade D (80 WPM, English)</option><option value="C">Stenographer Grade C (100 WPM, English)</option><option value="X">Custom</option></select></div>
-  <div><label>Category (decides the pass limit)</label><select id="catg"><option value="ur">Unreserved</option><option value="res">Reserved categories</option></select></div></div>
+  <div><label>Category (decides the pass limit)</label><select id="catg"><option value="ur">Unreserved</option><option value="res">Reserved categories</option></select></div>
+  <div><label>Backspace</label><select id="bsm"><option value="off">Not allowed (strict)</option><option value="on">Allowed, one character at a time</option></select></div></div>
   <div class="row" style="margin-top:12px">
    <div><label>Transcription time (min)</label><input id="mins" type="number" min="1"></div>
    <div><label>Words in master passage</label><input id="den" type="number" min="1"></div>
@@ -67,7 +68,9 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1
  <audio id="au" controls class="hide"></audio><p><button id="tgo">Start transcription</button></p></div></section>
 
 <section id="test" class="hide">
- <div id="bar"><div class="clock" id="clock">50:00</div><div class="mu">Words typed <b id="wc" style="color:var(--tx)">0</b></div><button id="fin" style="margin-left:auto">Submit</button></div>
+ <div id="bar"><div class="clock" id="clock">50:00</div><div class="mu">Words typed <b id="wc" style="color:var(--tx)">0</b></div><div class="mu" id="tl"></div>
+  <div style="display:flex;gap:6px;align-items:center"><button class="g" id="fsm" aria-label="Decrease font size" style="padding:6px 12px">A−</button><span class="mu" id="fsv" style="min-width:2ch;text-align:center">18</span><button class="g" id="fsp" aria-label="Increase font size" style="padding:6px 12px">A+</button></div>
+  <button id="fin" tabindex="-1" style="margin-left:auto">Submit</button></div>
  <textarea id="ta" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Transcription"></textarea>
 </section>
 
@@ -83,7 +86,8 @@ const $=s=>document.querySelector(s),esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;'
 const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0'),f1=n=>n.toFixed(1);
 const words=s=>s.trim().split(/\s+/).filter(Boolean);
 const kv=(a,b,c='')=>`<div class="kv"><span class="mu">${a}</span><b class="${c}">${b}</b></div>`;
-let curTitle='',lib={},cfg,t0,tick,dtick,keys,blocked,R,ref,info,alt,hidden=new Set();
+let curTitle='',lib={},cfg,t0,endAt,active=false,tick,dtick,keys,blocked,bs=0,R,ref,info,alt,hidden=new Set();
+let fs=+(()=>{try{return localStorage.getItem('steno_fs')}catch{return 0}})()||18;
 const FULL=['omi','sub','add','rep','inc','caps'],HALF=['spl','plu','stop','small','prop'];
 const CAT={omi:['Omission','--omi'],sub:['Substitution','--sub'],add:['Addition','--add'],rep:['Repetition','--add'],inc:['Incomplete word','--spl'],caps:['Typed in all capitals','--cap'],
  spl:['Wrong spelling','--spl'],plu:['Singular / plural','--pun'],stop:['Full stop missing or misplaced','--ok'],small:['Small letter at sentence start','--cap'],prop:['Proper noun not capitalised','--sub']};
@@ -141,7 +145,7 @@ function begin(){
  const text=$('#ref').value;
  if(words(text).length<5)return alert('Paste the dictated passage first.');
  prep(text,$('#alt').value);
- cfg={title:curTitle,mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
+ cfg={title:curTitle,mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,bsm:$('#bsm').value,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
  try{localStorage.setItem('steno_ref',text);localStorage.setItem('steno_alt',$('#alt').value)}catch{}
  if($('#skip').value==='1')return startTest();
  show('dict');const au=$('#au');if(au.src)au.play().catch(()=>{});
@@ -149,15 +153,21 @@ function begin(){
  dtick=setInterval(()=>{const l=600-(performance.now()-d0)/1000;$('#dclock').textContent=fmt(Math.max(0,l));if(l<=0)startTest()},250);
 }
 function startTest(){
- clearInterval(dtick);$('#au').pause();keys=0;blocked=0;show('test');ta.value='';ta.focus();
- t0=performance.now();clearInterval(tick);tick=setInterval(upd,250);upd();
+ clearInterval(dtick);$('#au').pause();keys=0;blocked=0;bs=0;show('test');ta.value='';ta.focus();
+ t0=performance.now();endAt=t0+cfg.mins*60000;active=true;$('#tl').textContent='Limit '+cfg.mins+' min';
+ clearInterval(tick);tick=setInterval(upd,250);upd();
 }
-function upd(){const left=cfg.mins*60-(performance.now()-t0)/1000;$('#clock').textContent=fmt(Math.max(0,left));$('#clock').classList.toggle('warn',left<60);$('#wc').textContent=words(ta.value).length;if(left<=0)finish()}
+function upd(){if(!active)return;const left=(endAt-performance.now())/1000;$('#clock').textContent=fmt(Math.max(0,left));$('#clock').classList.toggle('warn',left<60);$('#wc').textContent=words(ta.value).length;if(left<=0)finish('Time up')}
 const ta=$('#ta'),end=()=>ta.setSelectionRange(ta.value.length,ta.value.length);
-ta.addEventListener('keydown',e=>{const k=e.key;if(['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(k)||((e.ctrlKey||e.metaKey)&&'azxycv'.includes(k.toLowerCase()))){e.preventDefault();blocked++}});
+ta.addEventListener('keydown',e=>{const k=e.key;
+ if(k==='Tab'){e.preventDefault();ta.value+='\t';keys++;return}
+ if(k==='Backspace'&&cfg.bsm==='on'&&!e.ctrlKey&&!e.altKey&&!e.metaKey)return;
+ if(['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(k)||((e.ctrlKey||e.metaKey)&&'azxycv'.includes(k.toLowerCase()))){e.preventDefault();blocked++}});
 ['paste','cut','copy','drop','contextmenu'].forEach(v=>ta.addEventListener(v,e=>{e.preventDefault();blocked++}));
-ta.addEventListener('beforeinput',e=>{const t=e.inputType;if(t.startsWith('delete')||t.startsWith('history')||t==='insertFromPaste'||t==='insertFromDrop'){e.preventDefault();blocked++}});
-ta.addEventListener('input',e=>{keys+=e.data?e.data.length:1});
+ta.addEventListener('beforeinput',e=>{const t=e.inputType;
+ if(t==='deleteContentBackward'&&cfg.bsm==='on'&&ta.selectionStart===ta.selectionEnd)return;
+ if(t.startsWith('delete')||t.startsWith('history')||t==='insertFromPaste'||t==='insertFromDrop'){e.preventDefault();blocked++}});
+ta.addEventListener('input',e=>{if(e.inputType==='deleteContentBackward')bs++;keys+=e.data?e.data.length:1});
 ta.addEventListener('mousedown',e=>{e.preventDefault();ta.focus();end()});
 ['select','click','focus','keyup'].forEach(v=>ta.addEventListener(v,end));
 
@@ -165,18 +175,18 @@ function score(typed,el,keys,blocked,date){
  const typ=words(typed),ev=evaluate(typ),w=ev.full+ev.half/2,err=Math.round(w*100/cfg.den*100)/100,min=el/60;
  R={...ev,typed:typ.length,keys,el,err,w,gross:keys/5/min,net:Math.max(0,(keys/5-w)/min),blocked,date,cfg};
 }
-function finish(){
- clearInterval(tick);
+function finish(why){
+ if(!active)return;active=false;clearInterval(tick);
  const el=Math.max(1,Math.min((performance.now()-t0)/1000,cfg.mins*60)),date=Date.now();
- score(ta.value,el,keys,blocked,date);
- try{const h=hist();h.unshift({d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
+ score(ta.value,el,keys,blocked,date);R.why=why;R.bs=bs;
+ try{const h=hist();h.unshift({why,bs,d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
  render();show('result');window.scrollTo(0,0);
 }
 function openAttempt(i){
  const h=hist()[i];if(!h)return;
  if(h.typed===undefined)return alert('This attempt was saved before full reports were stored, so only its summary is available.');
- cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);
- $('#ref').value=h.text;$('#alt').value=h.alt||'';$('#mins').value=cfg.mins;$('#den').value=cfg.den;$('#lim').value=cfg.lim;$('#wpm').value=cfg.wpm;
+ cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);R.why=h.why;R.bs=h.bs;
+ $('#ref').value=h.text;$('#alt').value=h.alt||'';$('#mins').value=cfg.mins;$('#den').value=cfg.den;$('#lim').value=cfg.lim;$('#wpm').value=cfg.wpm;$('#bsm').value=cfg.bsm||'off';
  hidden.clear();render();show('result');window.scrollTo(0,0);
 }
 function delAttempt(i){if(!confirm('Delete this attempt?'))return;const h=hist();h.splice(i,1);try{localStorage.setItem(LS,JSON.stringify(h))}catch{}showHist()}
@@ -184,7 +194,7 @@ function delAttempt(i){if(!confirm('Delete this attempt?'))return;const h=hist()
 /* ---------- results ---------- */
 function render(){
  const r=R,c=r.cnt,ok=r.err<=r.cfg.lim,keysC=Object.keys(CAT);
- $('#rs').textContent=(r.cfg.title?r.cfg.title+' · ':'')+new Date(r.date).toLocaleString()+' · '+r.cfg.pre;
+ $('#rs').textContent=(r.cfg.title?r.cfg.title+' · ':'')+new Date(r.date).toLocaleString()+' · '+r.cfg.pre+(r.why?' · '+r.why:'');
  $('#p1').innerHTML=`<div class="card big" style="border-color:${ok?'var(--omi)':'var(--bad)'}"><b class="${ok?'good':'bad'}">${r.err.toFixed(2)}%</b><span class="mu">Percentage of errors</span><br>
   <span class="pill" style="margin-top:10px;background:${ok?'#4ade8026':'#f43f5e26'}">${ok?'Qualifies':'Does not qualify'} at up to ${r.cfg.lim}% (${r.cfg.cat.toLowerCase()})</span>
   <div class="mu" style="margin-top:12px;font-size:13px">(${r.full} full + ${r.half} half ÷ 2) × 100 ÷ ${r.cfg.den} words, rounded to two decimals</div></div>
@@ -204,7 +214,7 @@ function render(){
   <tr><th>Accepted as correct</th><td>Figures as numerals or words, alternate forms you listed, every other punctuation mark, capitals in the middle of a sentence</td></tr>
   <tr><th>Percentage of errors</th><td>(${r.full} + ${r.half}/2) × 100 ÷ ${r.cfg.den} = ${r.err.toFixed(2)}%</td></tr></table></div>
  <div class="card"><h2>Test settings and integrity</h2><table>
-  <tr><th>Post and category</th><td>${esc(r.cfg.pre)}, ${esc(r.cfg.cat)}</td></tr><tr><th>Transcription time</th><td>${r.cfg.mins} min</td></tr><tr><th>Backspace</th><td>Disabled</td></tr>
+  <tr><th>Post and category</th><td>${esc(r.cfg.pre)}, ${esc(r.cfg.cat)}</td></tr><tr><th>Transcription time</th><td>${r.cfg.mins} min</td></tr><tr><th>Backspace</th><td>${r.cfg.bsm==='on'?'Allowed, pressed '+(r.bs||0)+' times':'Disabled'}</td></tr>
   <tr><th>Blocked attempts (backspace, paste, arrows)</th><td class="${r.blocked?'warn':'good'}">${r.blocked}</td></tr></table></div>`;
  setCats();
 }
@@ -285,9 +295,14 @@ $('#ldel').onclick=async()=>{const v=$('#lv').value,d=$('#ld').value;if(!lib[v]|
 $('#lexp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(lib)],{type:'application/json'}));a.download='steno-library.json';a.click()};
 $('#lsave').onclick=async()=>{const v=$('#nv').value.trim(),d=$('#nd').value.trim(),t=$('#ref').value.trim();if(!v||!d||!t)return alert('Enter a volume name, a dictation name, and a passage.');await addLib({[v]:{[d]:t}});refreshLib(v);$('#ld').value=d;$('#ref').value='';curTitle='';$('#nd').value=d.replace(/(\d+)\s*$/,m=>+m+1);alert('Saved '+v+', '+d+'.')};
 $('#hist').onclick=e=>{const v=e.target.dataset.v,x=e.target.dataset.x;if(v!==undefined)openAttempt(+v);else if(x!==undefined)delAttempt(+x)};
-$('#go').onclick=begin;$('#tgo').onclick=startTest;$('#fin').onclick=()=>{if(confirm('Submit your transcription now?'))finish()};
+document.addEventListener('keydown',e=>{if(active&&e.target!==ta&&!/^(INPUT|SELECT)$/.test(e.target.tagName)){e.preventDefault();ta.focus()}},true);
+function setFs(d){fs=Math.min(40,Math.max(12,fs+d));document.documentElement.style.setProperty('--fs',fs+'px');$('#fsv').textContent=fs;try{localStorage.setItem('steno_fs',fs)}catch{}ta.focus()}
+$('#fsm').onclick=()=>setFs(-2);$('#fsp').onclick=()=>setFs(2);setFs(0);
+$('#go').onclick=begin;$('#tgo').onclick=startTest;$('#fin').onclick=e=>{if(e.detail===0)return;if(confirm('Submit your transcription now?'))finish('Submitted by you')};
 $('#again').onclick=()=>{show('setup');showHist()};$('#retry').onclick=begin;
 $('#pre').onchange=$('#catg').onchange=setPre;
+$('#bsm').onchange=()=>{try{localStorage.setItem('steno_bsm',$('#bsm').value)}catch{}};
+try{$('#bsm').value=localStorage.getItem('steno_bsm')||'off'}catch{}
 $('#aud').onchange=e=>{const f=e.target.files[0];if(f){$('#au').src=URL.createObjectURL(f);$('#au').classList.remove('hide')}};
 document.querySelector('.tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b===e.target));['p1','p2','p3'].forEach(i=>$('#'+i).classList.toggle('hide',i!==p))};
 $('#p2').onclick=e=>{if(e.target.classList.contains('chip')){const k=e.target.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);setCats()}};
