@@ -95,7 +95,11 @@ const CAT={omi:['Omission','--omi'],sub:['Substitution','--sub'],add:['Addition'
  spl:['Wrong spelling','--spl'],plu:['Singular / plural','--pun'],stop:['Full stop missing or misplaced','--ok'],small:['Small letter at sentence start','--cap'],prop:['Proper noun not capitalised','--sub']};
 const PRE={D:{mins:50,den:800,ur:7,res:10,wpm:80},C:{mins:40,den:1000,ur:5,res:7,wpm:100}};
 const LS='steno_hist',hist=()=>{try{return JSON.parse(localStorage.getItem(LS))||[]}catch{return[]}};
-const show=id=>['setup','dict','test','result'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id));
+let cur='setup',dictOn=false;
+const ROUTE={setup:'home',dict:'dictation',test:'test',result:'result'};
+const show=id=>{cur=id;['setup','dict','test','result'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id))};
+/* show a screen and give it its own browser-history entry (#home, #dictation, #test, #result) */
+function go(id,rep){show(id);const u='#'+ROUTE[id];try{if(rep)history.replaceState({s:id},'',u);else if(!(history.state&&history.state.s===id))history.pushState({s:id},'',u)}catch{}}
 
 /* ---------- SSC evaluation ---------- */
 const norm=w=>w.replace(/[^\p{L}\p{N}]/gu,'');
@@ -150,14 +154,14 @@ function begin(){
  cfg={title:curTitle,mins:+$('#mins').value||50,den:+$('#den').value||ref.length,lim:+$('#lim').value||5,wpm:+$('#wpm').value||80,text,bsm:$('#bsm').value,pre:$('#pre').selectedOptions[0].text,cat:$('#catg').selectedOptions[0].text};
  try{localStorage.setItem('steno_ref',text);localStorage.setItem('steno_alt',$('#alt').value)}catch{}
  if($('#skip').value==='1')return startTest();
- show('dict');const au=$('#au');if(au.src)au.play().catch(()=>{});
+ go('dict');dictOn=true;const au=$('#au');if(au.src)au.play().catch(()=>{});
  let d0=performance.now();clearInterval(dtick);
  dtick=setInterval(()=>{const l=600-(performance.now()-d0)/1000;$('#dclock').textContent=fmt(Math.max(0,l));if(l<=0)startTest()},250);
 }
 function startTest(){
  clearInterval(dtick);$('#au').pause();keys=0;blocked=0;bs=0;paused=false;pz=0;pms=0;
  ta.readOnly=false;ta.classList.remove('paused');$('#clock').classList.remove('pz');$('#pz').textContent='Pause';
- show('test');ta.value='';ta.focus();
+ dictOn=false;go('test',cur==='dict');ta.value='';ta.focus();
  t0=performance.now();endAt=t0+cfg.mins*60000;active=true;$('#tl').textContent='Limit '+cfg.mins+' min';
  clearInterval(tick);tick=setInterval(upd,250);upd();
 }
@@ -201,14 +205,14 @@ function finish(why){
  const el=Math.max(1,Math.min((performance.now()-t0)/1000,cfg.mins*60)),date=Date.now();
  score(ta.value,el,keys,blocked,date);R.why=why;R.bs=bs;R.pz=pz;R.pms=pms;
  try{const h=hist();h.unshift({why,bs,pz,pms,d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
- render();show('result');window.scrollTo(0,0);
+ render();go('result',true);window.scrollTo(0,0);
 }
 function openAttempt(i){
  const h=hist()[i];if(!h)return;
  if(h.typed===undefined)return alert('This attempt was saved before full reports were stored, so only its summary is available.');
  cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);R.why=h.why;R.bs=h.bs;R.pz=h.pz||0;R.pms=h.pms||0;
  $('#ref').value=h.text;$('#alt').value=h.alt||'';$('#mins').value=cfg.mins;$('#den').value=cfg.den;$('#lim').value=cfg.lim;$('#wpm').value=cfg.wpm;$('#bsm').value=cfg.bsm||'off';
- hidden.clear();render();show('result');window.scrollTo(0,0);
+ hidden.clear();render();go('result');window.scrollTo(0,0);
 }
 function delAttempt(i){if(!confirm('Delete this attempt?'))return;const h=hist();h.splice(i,1);try{localStorage.setItem(LS,JSON.stringify(h))}catch{}showHist()}
 
@@ -324,7 +328,7 @@ document.addEventListener('keydown',e=>{
 function setFs(d){fs=Math.min(40,Math.max(12,fs+d));document.documentElement.style.setProperty('--fs',fs+'px');$('#fsv').textContent=fs;try{localStorage.setItem('steno_fs',fs)}catch{}if(!paused)ta.focus()}
 $('#fsm').onclick=()=>setFs(-2);$('#fsp').onclick=()=>setFs(2);setFs(0);
 $('#go').onclick=begin;$('#tgo').onclick=startTest;$('#pz').onclick=togglePause;$('#fin').onclick=e=>{if(e.detail===0)return;if(confirm('Submit your transcription now?'))finish('Submitted by you')};
-$('#again').onclick=()=>{show('setup');showHist()};$('#retry').onclick=begin;
+$('#again').onclick=()=>{go('setup');showHist()};$('#retry').onclick=begin;
 $('#pre').onchange=$('#catg').onchange=setPre;
 $('#bsm').onchange=()=>{try{localStorage.setItem('steno_bsm',$('#bsm').value)}catch{}};
 try{$('#bsm').value=localStorage.getItem('steno_bsm')||'off'}catch{}
@@ -332,5 +336,19 @@ $('#aud').onchange=e=>{const f=e.target.files[0];if(f){$('#au').src=URL.createOb
 document.querySelector('.tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b===e.target));['p1','p2','p3'].forEach(i=>$('#'+i).classList.toggle('hide',i!==p))};
 $('#p2').onclick=e=>{if(e.target.classList.contains('chip')){const k=e.target.dataset.k;hidden.has(k)?hidden.delete(k):hidden.add(k);setCats()}};
 try{$('#ref').value=localStorage.getItem('steno_ref')||'';$('#alt').value=localStorage.getItem('steno_alt')||''}catch{}
+/* ---------- back / forward buttons ---------- */
+const busy=()=>active||dictOn;
+function abort(){active=false;dictOn=false;paused=false;clearInterval(tick);clearInterval(dtick);ta.readOnly=false;ta.classList.remove('paused');$('#clock').classList.remove('pz');$('#au').pause()}
+window.addEventListener('popstate',e=>{
+ const s=(e.state&&e.state.s)||'setup';
+ if(busy()&&s!==cur){
+  if(!confirm('Leave this test? Your progress so far will be lost.')){try{history.pushState({s:cur},'','#'+ROUTE[cur])}catch{}return}
+  abort();
+ }
+ if(!busy()&&(s==='test'||s==='dict'||(s==='result'&&!R)))return go('setup',true);
+ show(s);if(s==='setup')showHist();
+});
+window.addEventListener('beforeunload',e=>{if(busy()){e.preventDefault();e.returnValue=''}});
+try{history.replaceState({s:'setup'},'','#home')}catch{}
 setPre();showHist();dbGet('lib').then(l=>{lib=l||{};refreshLib()});try{navigator.storage.persist()}catch{}
 </script></body></html>
