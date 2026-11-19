@@ -14,8 +14,9 @@ button{background:var(--ac);color:#04121c;border:0;border-radius:9px;padding:10p
 button.g{background:var(--card2);color:var(--tx);border:1px solid var(--line)}
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 #bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2}
-.clock{font:700 34px ui-monospace,Consolas,monospace;color:var(--ac)}.clock.warn{color:var(--bad)}
+.clock{font:700 34px ui-monospace,Consolas,monospace;color:var(--ac)}.clock.warn{color:var(--bad)}.clock.pz{color:var(--mu)}
 #ta{height:55vh;font-family:"Times New Roman",Times,serif;font-size:var(--fs,18px);line-height:1.7;tab-size:5;caret-color:var(--ac)}
+#ta.paused{opacity:.45}
 .tabs{display:flex;gap:8px;margin:16px 0}.tabs button{background:var(--card);color:var(--mu);border:1px solid var(--line)}.tabs button.on{background:var(--ac);color:#04121c}
 .big{text-align:center;padding:26px}.big b{font-size:52px;display:block;line-height:1.1}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.g1{grid-template-columns:1fr}
@@ -70,7 +71,8 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1
 <section id="test" class="hide">
  <div id="bar"><div class="clock" id="clock">50:00</div><div class="mu">Words typed <b id="wc" style="color:var(--tx)">0</b></div><div class="mu" id="tl"></div>
   <div style="display:flex;gap:6px;align-items:center"><button class="g" id="fsm" aria-label="Decrease font size" style="padding:6px 12px">A−</button><span class="mu" id="fsv" style="min-width:2ch;text-align:center">18</span><button class="g" id="fsp" aria-label="Increase font size" style="padding:6px 12px">A+</button></div>
-  <button id="fin" tabindex="-1" style="margin-left:auto">Submit</button></div>
+  <button class="g" id="pz" tabindex="-1" title="Pause or resume (Esc)" style="margin-left:auto">Pause</button>
+  <button id="fin" tabindex="-1">Submit</button></div>
  <textarea id="ta" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Transcription"></textarea>
 </section>
 
@@ -86,7 +88,7 @@ const $=s=>document.querySelector(s),esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;'
 const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0'),f1=n=>n.toFixed(1);
 const words=s=>s.trim().split(/\s+/).filter(Boolean);
 const kv=(a,b,c='')=>`<div class="kv"><span class="mu">${a}</span><b class="${c}">${b}</b></div>`;
-let curTitle='',lib={},cfg,t0,endAt,active=false,tick,dtick,keys,blocked,bs=0,R,ref,info,alt,hidden=new Set();
+let curTitle='',lib={},cfg,t0,endAt,active=false,tick,dtick,keys,blocked,bs=0,R,ref,info,alt,hidden=new Set(),paused=false,pauseAt=0,pz=0,pms=0;
 let fs=+(()=>{try{return localStorage.getItem('steno_fs')}catch{return 0}})()||18;
 const FULL=['omi','sub','add','rep','inc','caps'],HALF=['spl','plu','stop','small','prop'];
 const CAT={omi:['Omission','--omi'],sub:['Substitution','--sub'],add:['Addition','--add'],rep:['Repetition','--add'],inc:['Incomplete word','--spl'],caps:['Typed in all capitals','--cap'],
@@ -153,17 +155,34 @@ function begin(){
  dtick=setInterval(()=>{const l=600-(performance.now()-d0)/1000;$('#dclock').textContent=fmt(Math.max(0,l));if(l<=0)startTest()},250);
 }
 function startTest(){
- clearInterval(dtick);$('#au').pause();keys=0;blocked=0;bs=0;show('test');ta.value='';ta.focus();
+ clearInterval(dtick);$('#au').pause();keys=0;blocked=0;bs=0;paused=false;pz=0;pms=0;
+ ta.readOnly=false;ta.classList.remove('paused');$('#clock').classList.remove('pz');$('#pz').textContent='Pause';
+ show('test');ta.value='';ta.focus();
  t0=performance.now();endAt=t0+cfg.mins*60000;active=true;$('#tl').textContent='Limit '+cfg.mins+' min';
  clearInterval(tick);tick=setInterval(upd,250);upd();
 }
-function upd(){if(!active)return;const left=(endAt-performance.now())/1000;$('#clock').textContent=fmt(Math.max(0,left));$('#clock').classList.toggle('warn',left<60);$('#wc').textContent=words(ta.value).length;if(left<=0)finish('Time up')}
+function upd(){if(!active||paused)return;const left=(endAt-performance.now())/1000;$('#clock').textContent=fmt(Math.max(0,left));$('#clock').classList.toggle('warn',left<60);$('#wc').textContent=words(ta.value).length;if(left<=0)finish('Time up')}
+/* pause: freeze the clock and lock the box; on resume, push the end time (and start time) forward by the paused duration */
+function shiftPause(){const d=performance.now()-pauseAt;t0+=d;endAt+=d;pms+=d}
+function togglePause(){
+ if(!active)return;
+ if(!paused){
+  paused=true;pauseAt=performance.now();pz++;
+  ta.readOnly=true;ta.classList.add('paused');$('#clock').classList.add('pz');
+  $('#pz').textContent='Resume';$('#tl').textContent='Paused';
+ }else{
+  shiftPause();paused=false;
+  ta.readOnly=false;ta.classList.remove('paused');$('#clock').classList.remove('pz');
+  $('#pz').textContent='Pause';$('#tl').textContent='Limit '+cfg.mins+' min';
+  upd();ta.focus();end();
+ }
+}
 const ta=$('#ta'),end=()=>ta.setSelectionRange(ta.value.length,ta.value.length);
-ta.addEventListener('keydown',e=>{const k=e.key;
+ta.addEventListener('keydown',e=>{if(paused)return;const k=e.key;
  if(k==='Tab'){e.preventDefault();ta.value+='\t';keys++;return}
  if(k==='Backspace'&&cfg.bsm==='on'&&!e.ctrlKey&&!e.altKey&&!e.metaKey)return;
  if(['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(k)||((e.ctrlKey||e.metaKey)&&'azxycv'.includes(k.toLowerCase()))){e.preventDefault();blocked++}});
-['paste','cut','copy','drop','contextmenu'].forEach(v=>ta.addEventListener(v,e=>{e.preventDefault();blocked++}));
+['paste','cut','copy','drop','contextmenu'].forEach(v=>ta.addEventListener(v,e=>{e.preventDefault();if(!paused)blocked++}));
 ta.addEventListener('beforeinput',e=>{const t=e.inputType;
  if(t==='deleteContentBackward'&&cfg.bsm==='on'&&ta.selectionStart===ta.selectionEnd)return;
  if(t.startsWith('delete')||t.startsWith('history')||t==='insertFromPaste'||t==='insertFromDrop'){e.preventDefault();blocked++}});
@@ -176,16 +195,18 @@ function score(typed,el,keys,blocked,date){
  R={...ev,typed:typ.length,keys,el,err,w,gross:keys/5/min,net:Math.max(0,(keys/5-w)/min),blocked,date,cfg};
 }
 function finish(why){
- if(!active)return;active=false;clearInterval(tick);
+ if(!active)return;
+ if(paused){shiftPause();paused=false}
+ active=false;clearInterval(tick);ta.readOnly=false;
  const el=Math.max(1,Math.min((performance.now()-t0)/1000,cfg.mins*60)),date=Date.now();
- score(ta.value,el,keys,blocked,date);R.why=why;R.bs=bs;
- try{const h=hist();h.unshift({why,bs,d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
+ score(ta.value,el,keys,blocked,date);R.why=why;R.bs=bs;R.pz=pz;R.pms=pms;
+ try{const h=hist();h.unshift({why,bs,pz,pms,d:date,e:R.err,f:R.full,h:R.half,g:R.gross,typed:ta.value,text:cfg.text,alt:$('#alt').value,cfg,keys,el,blocked});localStorage.setItem(LS,JSON.stringify(h.slice(0,30)))}catch{}
  render();show('result');window.scrollTo(0,0);
 }
 function openAttempt(i){
  const h=hist()[i];if(!h)return;
  if(h.typed===undefined)return alert('This attempt was saved before full reports were stored, so only its summary is available.');
- cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);R.why=h.why;R.bs=h.bs;
+ cfg=h.cfg;prep(h.text,h.alt||'');score(h.typed,h.el,h.keys,h.blocked,h.d);R.why=h.why;R.bs=h.bs;R.pz=h.pz||0;R.pms=h.pms||0;
  $('#ref').value=h.text;$('#alt').value=h.alt||'';$('#mins').value=cfg.mins;$('#den').value=cfg.den;$('#lim').value=cfg.lim;$('#wpm').value=cfg.wpm;$('#bsm').value=cfg.bsm||'off';
  hidden.clear();render();show('result');window.scrollTo(0,0);
 }
@@ -215,6 +236,7 @@ function render(){
   <tr><th>Percentage of errors</th><td>(${r.full} + ${r.half}/2) × 100 ÷ ${r.cfg.den} = ${r.err.toFixed(2)}%</td></tr></table></div>
  <div class="card"><h2>Test settings and integrity</h2><table>
   <tr><th>Post and category</th><td>${esc(r.cfg.pre)}, ${esc(r.cfg.cat)}</td></tr><tr><th>Transcription time</th><td>${r.cfg.mins} min</td></tr><tr><th>Backspace</th><td>${r.cfg.bsm==='on'?'Allowed, pressed '+(r.bs||0)+' times':'Disabled'}</td></tr>
+  <tr><th>Pauses (practice only, not allowed in the real exam)</th><td class="${r.pz?'warn':'good'}">${r.pz?r.pz+' ('+fmt((r.pms||0)/1000)+' in total)':'None'}</td></tr>
   <tr><th>Blocked attempts (backspace, paste, arrows)</th><td class="${r.blocked?'warn':'good'}">${r.blocked}</td></tr></table></div>`;
  setCats();
 }
@@ -295,10 +317,13 @@ $('#ldel').onclick=async()=>{const v=$('#lv').value,d=$('#ld').value;if(!lib[v]|
 $('#lexp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(lib)],{type:'application/json'}));a.download='steno-library.json';a.click()};
 $('#lsave').onclick=async()=>{const v=$('#nv').value.trim(),d=$('#nd').value.trim(),t=$('#ref').value.trim();if(!v||!d||!t)return alert('Enter a volume name, a dictation name, and a passage.');await addLib({[v]:{[d]:t}});refreshLib(v);$('#ld').value=d;$('#ref').value='';curTitle='';$('#nd').value=d.replace(/(\d+)\s*$/,m=>+m+1);alert('Saved '+v+', '+d+'.')};
 $('#hist').onclick=e=>{const v=e.target.dataset.v,x=e.target.dataset.x;if(v!==undefined)openAttempt(+v);else if(x!==undefined)delAttempt(+x)};
-document.addEventListener('keydown',e=>{if(active&&e.target!==ta&&!/^(INPUT|SELECT)$/.test(e.target.tagName)){e.preventDefault();ta.focus()}},true);
-function setFs(d){fs=Math.min(40,Math.max(12,fs+d));document.documentElement.style.setProperty('--fs',fs+'px');$('#fsv').textContent=fs;try{localStorage.setItem('steno_fs',fs)}catch{}ta.focus()}
+document.addEventListener('keydown',e=>{
+ if(active&&e.key==='Escape'){e.preventDefault();togglePause();return}
+ if(active&&!paused&&e.target!==ta&&!/^(INPUT|SELECT)$/.test(e.target.tagName)){e.preventDefault();ta.focus()}
+},true);
+function setFs(d){fs=Math.min(40,Math.max(12,fs+d));document.documentElement.style.setProperty('--fs',fs+'px');$('#fsv').textContent=fs;try{localStorage.setItem('steno_fs',fs)}catch{}if(!paused)ta.focus()}
 $('#fsm').onclick=()=>setFs(-2);$('#fsp').onclick=()=>setFs(2);setFs(0);
-$('#go').onclick=begin;$('#tgo').onclick=startTest;$('#fin').onclick=e=>{if(e.detail===0)return;if(confirm('Submit your transcription now?'))finish('Submitted by you')};
+$('#go').onclick=begin;$('#tgo').onclick=startTest;$('#pz').onclick=togglePause;$('#fin').onclick=e=>{if(e.detail===0)return;if(confirm('Submit your transcription now?'))finish('Submitted by you')};
 $('#again').onclick=()=>{show('setup');showHist()};$('#retry').onclick=begin;
 $('#pre').onchange=$('#catg').onchange=setPre;
 $('#bsm').onchange=()=>{try{localStorage.setItem('steno_bsm',$('#bsm').value)}catch{}};
